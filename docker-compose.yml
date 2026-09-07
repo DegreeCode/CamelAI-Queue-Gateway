@@ -1,0 +1,48 @@
+services:
+  gateway:
+    build:
+      context: .
+    image: camel-queue-gateway:local
+    restart: unless-stopped
+    init: true
+    user: "10001:10001"
+    env_file:
+      - /etc/camel-gateway/gateway.env
+    environment:
+      GATEWAY_DATA_DIR: /data
+      GATEWAY_DB_PATH: /data/gateway.db
+      GATEWAY_SPOOL_DIR: /data/spool
+      GATEWAY_LOCK_PATH: /data/gateway.lock
+      GATEWAY_LOG_DIR: /logs
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - /var/lib/camel-gateway:/data
+      - /var/log/camel-gateway:/logs
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    stop_grace_period: 2m
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import json,urllib.request;
+          data=json.load(urllib.request.urlopen('http://127.0.0.1:8000/healthz',timeout=3));
+          raise SystemExit(0 if data.get('status')=='ok' else 1)
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
